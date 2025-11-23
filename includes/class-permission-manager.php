@@ -121,6 +121,15 @@ class WIABooks_Permission_Manager {
     /**
      * Check if user has permission to edit/delete post
      *
+     * Allows:
+     * - New post creation (no post_id)
+     * - Editing own posts
+     * - Editing posts in same category (collaboration)
+     * - REST API, AJAX, Autosave requests
+     *
+     * Denies:
+     * - Editing other users' posts in different categories
+     *
      * @param array   $allcaps All capabilities
      * @param array   $caps    Required capabilities
      * @param array   $args    Additional arguments
@@ -128,8 +137,23 @@ class WIABooks_Permission_Manager {
      * @return array Modified capabilities
      */
     public function check_post_edit_permission( $allcaps, $caps, $args, $user ) {
-        // Skip for administrators
+        // Skip for administrators - they can do everything
         if ( isset( $allcaps['manage_options'] ) && $allcaps['manage_options'] ) {
+            return $allcaps;
+        }
+
+        // Allow REST API requests (required for block editor)
+        if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+            return $allcaps;
+        }
+
+        // Allow AJAX requests
+        if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+            return $allcaps;
+        }
+
+        // Allow autosave requests
+        if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
             return $allcaps;
         }
 
@@ -139,22 +163,29 @@ class WIABooks_Permission_Manager {
         }
 
         // Get post ID
-        if ( ! isset( $args[2] ) ) {
+        if ( ! isset( $args[2] ) || empty( $args[2] ) ) {
+            // No post ID = new post creation - ALLOW
             return $allcaps;
         }
 
         $post_id = $args[2];
         $post = get_post( $post_id );
 
+        // If post doesn't exist, allow (WordPress will handle the error)
         if ( ! $post ) {
             return $allcaps;
         }
 
-        // Get user's category
+        // RULE 1: Allow editing own posts (regardless of category)
+        if ( (int) $post->post_author === (int) $user->ID ) {
+            return $allcaps;
+        }
+
+        // RULE 2: Check category-based permissions for other users' posts
         $user_category_id = get_user_meta( $user->ID, 'wiabooks_book_category_id', true );
 
+        // If user has no category assigned, deny editing other users' posts
         if ( ! $user_category_id ) {
-            // User has no category assigned - deny
             foreach ( $caps as $cap ) {
                 $allcaps[ $cap ] = false;
             }
@@ -164,12 +195,14 @@ class WIABooks_Permission_Manager {
         // Get post categories
         $post_categories = wp_get_post_categories( $post_id );
 
-        // Check if post belongs to user's category
-        if ( ! in_array( $user_category_id, $post_categories, true ) ) {
-            // Post is not in user's category - deny
-            foreach ( $caps as $cap ) {
-                $allcaps[ $cap ] = false;
-            }
+        // RULE 3: Allow editing posts in same category (collaboration)
+        if ( in_array( (int) $user_category_id, array_map( 'intval', $post_categories ), true ) ) {
+            return $allcaps;
+        }
+
+        // RULE 4: Deny editing posts in different categories
+        foreach ( $caps as $cap ) {
+            $allcaps[ $cap ] = false;
         }
 
         return $allcaps;
