@@ -1,0 +1,472 @@
+/**
+ * WIABooks Frontend Styles
+ *
+ * @package WIABooks_Signup_System
+ * @version 1.0.0
+ */
+
+/* General Container */
+.wiabooks-book-info-page,
+.wiabooks-author-dashboard {
+    padding: 40px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.container {
+    width: 100%;
+}
+
+/* Page Header */
+.page-title {
+    font-size: 32px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.page-description {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* Form Wrapper */
+.wiabooks-form-wrapper {
+    max-width: 600px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Form Styles */
+.wiabooks-form .form-group {
+    margin-bottom: 25px;
+}
+
+.wiabooks-form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+    font-size: 14px;
+}
+
+.wiabooks-form label.required::after {
+    content: " *";
+    color: #e74c3c;
+}
+
+.wiabooks-form .form-control {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+}
+
+.wiabooks-form .form-control:focus {
+    outline: none;
+    border-color: #2271b1;
+    box-shadow: 0 0 0 3px rgba(34, 113, 177, 0.1);
+}
+
+.wiabooks-form textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.wiabooks-form .form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #666;
+}
+
+/* Form Notice */
+.form-notice {
+    background: #e7f3ff;
+    border-left: 4px solid #2271b1;
+    padding: 15px 20px;
+    margin-bottom: 25px;
+    border-radius: 4px;
+}
+
+.form-notice p {
+    margin: 0 0 10px 0;
+    font-weight: 600;
+}
+
+.form-notice ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.form-notice li {
+    margin-bottom: 5px;
+    color: #555;
+}
+
+/* Form Actions */
+.form-actions {
+    margin-top: 30px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: #2271b1;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #135e96;
+}
+
+.btn-secondary {
+    background: #666;
+    color: #fff;
+}
+
+.btn-secondary:hover {
+    background: #555;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* Form Messages */
+.form-message {
+    padding: 15px 20px;
+    margin-top: 20px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-message.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.form-message.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+    margin-bottom: 40px;
+    text-align: center;
+}
+
+.dashboard-header h1 {
+    font-size: 36px;
+    margin-bottom: 10px;
+    color: #333;
+}
+
+.dashboard-subtitle {
+    font-size: 16px;
+    color: #666;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 40px;
+}
+
+.dashboard-card {
+    background: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-card h2 {
+    font-size: 20px;
+    margin: 0 0 20px 0;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+    color: #333;
+}
+
+/* Book Info Card */
+.book-details {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.book-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.book-detail-item:last-child {
+    border-bottom: none;
+}
+
+.book-detail-item strong {
+    color: #666;
+    font-size: 14px;
+}
+
+.book-detail-item span,
+.book-detail-item a {
+    color: #333;
+    font-weight: 500;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 6px;
+}
+
+.stat-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #2271b1;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 13px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Credit Card */
+.credit-balance {
+    text-align: center;
+}
+
+.credit-amount {
+    font-size: 48px;
+    font-weight: bold;
+    color: #0a7b0a;
+    margin-bottom: 10px;
+}
+
+.credit-info {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.credit-note {
+    padding: 15px;
+    background: #fff9e6;
+    border-left: 4px solid #ffb700;
+    border-radius: 4px;
+    margin-top: 15px;
+}
+
+.credit-note small {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Action Buttons */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Dashboard Section */
+.dashboard-section {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+}
+
+.dashboard-section h2 {
+    font-size: 24px;
+    margin: 0 0 20px 0;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+/* Posts Table */
+.posts-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.posts-table th,
+.posts-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.posts-table th {
+    background: #f9f9f9;
+    font-weight: 600;
+    color: #666;
+    font-size: 13px;
+    text-transform: uppercase;
+}
+
+.posts-table tr:hover {
+    background: #f9f9f9;
+}
+
+.post-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-publish {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-draft {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-pending {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.status-private {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.no-posts {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.no-posts a {
+    color: #2271b1;
+    font-weight: 600;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+    width: 100%;
+    height: 30px;
+    background: #f0f0f0;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #2271b1, #4a9fd8);
+    transition: width 0.5s ease;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.progress-message {
+    text-align: center;
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Signup Container */
+.wiabooks-signup-container {
+    max-width: 500px;
+    margin: 40px auto;
+    padding: 40px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.wiabooks-signup-container h2 {
+    margin-bottom: 15px;
+}
+
+.wiabooks-signup-container p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wiabooks-form-wrapper {
+        padding: 30px 20px;
+    }
+
+    .dashboard-section {
+        padding: 20px;
+    }
+
+    .posts-table {
+        font-size: 14px;
+    }
+
+    .posts-table th,
+    .posts-table td {
+        padding: 8px 10px;
+    }
+}
