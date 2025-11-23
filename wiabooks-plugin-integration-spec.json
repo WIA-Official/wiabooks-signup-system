@@ -1,0 +1,947 @@
+{
+  "metadata": {
+    "document_version": "1.0.0",
+    "generated_date": "2025-11-23",
+    "purpose": "Platform integration specification for WIABooks plugin system",
+    "target_audience": "Platform integration architects and developers"
+  },
+
+  "plugins": [
+    {
+      "name": "WIABooks Signup System",
+      "slug": "wiabooks-signup-system",
+      "version": "1.0.0",
+      "repository": "https://github.com/WIA-Official/wiabooks-signup-system",
+      "main_file": "wiabooks-signup-system.php",
+      "text_domain": "wiabooks-signup",
+      "description": "Core WIABooks member management system with Google login (Nextend), automatic category creation, permission management, and author dashboards",
+
+      "constants": {
+        "WIABOOKS_VERSION": "1.0.0",
+        "WIABOOKS_PLUGIN_DIR": "plugin_dir_path(__FILE__)",
+        "WIABOOKS_PLUGIN_URL": "plugin_dir_url(__FILE__)",
+        "WIABOOKS_PLUGIN_BASENAME": "plugin_basename(__FILE__)"
+      },
+
+      "main_class": {
+        "name": "WIABooks_Signup_System",
+        "instance_method": "WIABooks_Signup_System::instance()",
+        "global_function": "WIABooks()",
+        "singleton": true
+      },
+
+      "core_classes": [
+        {
+          "name": "WIABooks_Signup_Handler",
+          "file": "includes/class-signup-handler.php",
+          "responsibilities": [
+            "Handle social login redirection flow",
+            "Manage book information submission",
+            "Provide custom pages via rewrite rules",
+            "AJAX form processing"
+          ],
+          "key_methods": {
+            "handle_social_login": {
+              "description": "Redirect users after Google login - new users to /book-info/, existing to /author-dashboard/",
+              "hook": "nsl_login",
+              "priority": 10,
+              "args": 1,
+              "logic": "Check for wiabooks_book_category_id user meta to determine redirect"
+            },
+            "handle_book_info_submission": {
+              "description": "Process book information form via AJAX",
+              "ajax_action": "submit_book_info",
+              "nonce": "wiabooks_book_info",
+              "creates": "Category, user metadata, sets author role, assigns $1,000 credit"
+            }
+          }
+        },
+        {
+          "name": "WIABooks_Category_Manager",
+          "file": "includes/class-category-manager.php",
+          "responsibilities": [
+            "Create WordPress categories from Korean book titles",
+            "Romanize Korean text to English slugs",
+            "Manage category lifecycle"
+          ],
+          "key_methods": {
+            "create_book_category": {
+              "description": "Create category with Korean title and romanized slug",
+              "params": ["book_title (Korean)", "description (optional)"],
+              "returns": "category_id or WP_Error",
+              "algorithm": "Uses Revised Romanization of Korean (초성/중성/종성 decomposition)"
+            },
+            "romanize_korean": {
+              "description": "Convert Korean text to romanized English slug",
+              "example": "나의 첫 소설 → naui-cheot-soseol",
+              "unicode_range": "0xAC00 to 0xD7A3 (Hangul syllables)"
+            }
+          },
+          "romanization_map": {
+            "cho": ["g", "kk", "n", "d", "tt", "r", "m", "b", "pp", "s", "ss", "", "j", "jj", "ch", "k", "t", "p", "h"],
+            "jung": ["a", "ae", "ya", "yae", "eo", "e", "yeo", "ye", "o", "wa", "wae", "oe", "yo", "u", "wo", "we", "wi", "yu", "eu", "ui", "i"],
+            "jong": ["", "k", "k", "k", "n", "n", "n", "l", "l", "l", "l", "l", "l", "l", "l", "m", "p", "p", "t", "t", "ng", "t", "t", "k", "t", "p", "t"]
+          }
+        },
+        {
+          "name": "WIABooks_Permission_Manager",
+          "file": "includes/class-permission-manager.php",
+          "responsibilities": [
+            "Category-based permission system for authors",
+            "Filter posts by category in admin",
+            "Restrict editing to own posts and same-category posts",
+            "Auto-assign categories to posts"
+          ],
+          "key_methods": {
+            "check_post_edit_permission": {
+              "description": "Core permission logic - controls who can edit/delete posts",
+              "filter": "user_has_cap",
+              "priority": 10,
+              "args": 4,
+              "permission_rules": {
+                "rule_0": "Administrators bypass all checks (manage_options capability)",
+                "rule_1": "Allow REST_REQUEST, DOING_AJAX, DOING_AUTOSAVE (WordPress block editor compatibility)",
+                "rule_2": "Allow new post creation (no post_id)",
+                "rule_3": "Allow editing own posts (post_author === user_id)",
+                "rule_4": "Allow editing posts in same category (collaboration feature)",
+                "rule_5": "Deny editing posts in different categories"
+              },
+              "critical_fix": "Added REST API exception to fix 403 errors in block editor (2025-11-23)"
+            },
+            "filter_posts_by_category": {
+              "description": "Restrict admin post list to user's category only",
+              "filter": "pre_get_posts",
+              "logic": "Set 'cat' query var to wiabooks_book_category_id"
+            },
+            "auto_assign_category": {
+              "description": "Automatically assign user's category when creating/updating posts",
+              "action": "save_post",
+              "priority": 10,
+              "args": 3
+            }
+          }
+        },
+        {
+          "name": "WIABooks_Admin_Dashboard",
+          "file": "includes/class-admin-dashboard.php",
+          "responsibilities": [
+            "Admin menu for managing authors",
+            "User statistics and credit management",
+            "Author list interface"
+          ]
+        }
+      ],
+
+      "wordpress_routes": {
+        "custom_pages": [
+          {
+            "url": "/book-info/",
+            "query_var": "wiabooks_page=book-info",
+            "template": "templates/signup-form.php",
+            "auth_required": true,
+            "purpose": "Book information input form for new authors"
+          },
+          {
+            "url": "/author-dashboard/",
+            "query_var": "wiabooks_page=author-dashboard",
+            "template": "templates/author-dashboard.php",
+            "auth_required": true,
+            "purpose": "Author dashboard with stats and writing progress"
+          }
+        ]
+      },
+
+      "ajax_endpoints": [
+        {
+          "action": "submit_book_info",
+          "handler": "WIABooks_Signup_Handler::handle_book_info_submission",
+          "nonce": "wiabooks_book_info",
+          "auth_required": true,
+          "method": "POST",
+          "parameters": {
+            "book_title": "required - string",
+            "book_subtitle": "optional - string",
+            "book_description": "optional - string",
+            "nonce": "required - string"
+          },
+          "response": {
+            "success": {
+              "message": "책 정보가 성공적으로 등록되었습니다!",
+              "redirect_url": "/author-dashboard/"
+            },
+            "error": {
+              "message": "Error message string"
+            }
+          }
+        }
+      ],
+
+      "wordpress_hooks": {
+        "actions": [
+          {
+            "hook": "nsl_login",
+            "callback": "WIABooks_Signup_Handler::handle_social_login",
+            "priority": 10,
+            "args": 1,
+            "description": "Nextend Social Login integration - redirects after Google login"
+          },
+          {
+            "hook": "save_post",
+            "callback": "WIABooks_Permission_Manager::auto_assign_category",
+            "priority": 10,
+            "args": 3,
+            "description": "Auto-assign user's category to posts"
+          },
+          {
+            "hook": "admin_head-post-new.php",
+            "callback": "WIABooks_Permission_Manager::customize_post_editor",
+            "description": "Hide category metabox, show auto-assignment notice"
+          },
+          {
+            "hook": "admin_head-post.php",
+            "callback": "WIABooks_Permission_Manager::customize_post_editor",
+            "description": "Hide category metabox, show auto-assignment notice"
+          },
+          {
+            "hook": "wiabooks_signup_loaded",
+            "description": "Custom hook triggered after plugin initialization",
+            "use_case": "Third-party integration point"
+          }
+        ],
+        "filters": [
+          {
+            "filter": "pre_get_posts",
+            "callback": "WIABooks_Permission_Manager::filter_posts_by_category",
+            "description": "Restrict admin post queries to user's category"
+          },
+          {
+            "filter": "user_has_cap",
+            "callback": "WIABooks_Permission_Manager::check_post_edit_permission",
+            "priority": 10,
+            "args": 4,
+            "description": "Core permission system - controls edit/delete capabilities"
+          },
+          {
+            "filter": "wp_dropdown_cats",
+            "callback": "WIABooks_Permission_Manager::restrict_category_dropdown",
+            "priority": 10,
+            "args": 2,
+            "description": "Show only user's category in dropdowns"
+          }
+        ]
+      },
+
+      "data_models": {
+        "user_metadata": [
+          {
+            "meta_key": "wiabooks_book_category_id",
+            "type": "integer",
+            "description": "WordPress category ID for user's book",
+            "set_by": "WIABooks_Signup_Handler::handle_book_info_submission",
+            "usage": "Permission filtering, post assignment, user identification"
+          },
+          {
+            "meta_key": "wiabooks_book_title",
+            "type": "string",
+            "description": "Book title (Korean)",
+            "set_by": "WIABooks_Signup_Handler::handle_book_info_submission"
+          },
+          {
+            "meta_key": "wiabooks_book_subtitle",
+            "type": "string",
+            "description": "Book subtitle (optional)",
+            "set_by": "WIABooks_Signup_Handler::handle_book_info_submission"
+          },
+          {
+            "meta_key": "wiabooks_credit",
+            "type": "integer",
+            "description": "Credit balance in cents ($1,000 = 1000)",
+            "default": 1000,
+            "set_by": "Plugin activation, book info submission"
+          },
+          {
+            "meta_key": "wiabooks_signup_date",
+            "type": "datetime",
+            "description": "User signup date (mysql format)",
+            "set_by": "WIABooks_Signup_Handler::handle_book_info_submission"
+          }
+        ],
+        "options": [
+          {
+            "option_name": "wiabooks_signup_settings",
+            "type": "array",
+            "default": {
+              "default_credit": 1000,
+              "enable_credit_system": false,
+              "redirect_after_signup": "dashboard"
+            }
+          }
+        ]
+      },
+
+      "dependencies": {
+        "required_plugins": [
+          {
+            "name": "Nextend Social Login",
+            "purpose": "Google OAuth 2.0 integration",
+            "hook_used": "nsl_login"
+          }
+        ],
+        "theme": {
+          "name": "GeneratePress",
+          "integration_file": "generatepress-functions.php",
+          "customizations": "Navigation menu, header widgets, footer stats"
+        }
+      }
+    },
+
+    {
+      "name": "WIA Books Social Login",
+      "slug": "wia-books-social-login",
+      "version": "1.0.0",
+      "repository": "https://github.com/WIA-Official/wia-books-social-login",
+      "main_file": "wia-books-social-login.php",
+      "text_domain": "wia-social-login",
+      "description": "Kakao and Naver OAuth 2.0 social login integration with WIABooks system auto-detection and integration",
+
+      "constants": {
+        "WIA_SOCIAL_LOGIN_VERSION": "1.0.0",
+        "WIA_SOCIAL_LOGIN_PLUGIN_DIR": "plugin_dir_path(__FILE__)",
+        "WIA_SOCIAL_LOGIN_PLUGIN_URL": "plugin_dir_url(__FILE__)",
+        "WIA_SOCIAL_LOGIN_PLUGIN_BASENAME": "plugin_basename(__FILE__)"
+      },
+
+      "main_class": {
+        "name": "WIA_Social_Login",
+        "instance_method": "WIA_Social_Login::instance()",
+        "global_function": "WIA_Social_Login()",
+        "singleton": true
+      },
+
+      "core_classes": [
+        {
+          "name": "WIA_Social_Auth_Handler",
+          "file": "includes/class-social-auth-handler.php",
+          "responsibilities": [
+            "Unified social login processing",
+            "User creation and profile synchronization",
+            "WIABooks plugin integration detection",
+            "Redirect logic based on user status"
+          ],
+          "key_methods": {
+            "process_social_login": {
+              "description": "Process login from Kakao or Naver",
+              "params": ["user_info (array)", "provider (string: kakao|naver)"],
+              "returns": "user_id or WP_Error",
+              "flow": [
+                "1. Find user by social ID",
+                "2. If exists, sync profile and return user_id",
+                "3. Check for existing email",
+                "4. If email exists, link social account",
+                "5. If new user, create account (if auto_create_account enabled)",
+                "6. Initialize WIABooks metadata if plugin active"
+              ]
+            },
+            "create_user": {
+              "description": "Create new WordPress user from social data",
+              "username_format": "{provider}_{provider_id}",
+              "default_role": "author",
+              "password": "wp_generate_password(20, true, true)",
+              "wiabooks_init": {
+                "wiabooks_credit": 1000,
+                "wiabooks_signup_date": "current_time('mysql')"
+              }
+            },
+            "get_redirect_url": {
+              "description": "Intelligent redirect after login",
+              "logic": {
+                "wiabooks_active": {
+                  "no_book": "/book-info/",
+                  "has_book": "/author-dashboard/"
+                },
+                "wiabooks_inactive": {
+                  "dashboard": "admin_url()",
+                  "home": "home_url()",
+                  "book-info": "/book-info/"
+                }
+              },
+              "detection_method": "class_exists('WIABooks_Signup_System')"
+            },
+            "is_wiabooks_active": {
+              "description": "Detect if WIABooks Signup System plugin is active",
+              "method": "class_exists('WIABooks_Signup_System')",
+              "return": "boolean"
+            }
+          }
+        },
+        {
+          "name": "WIA_Kakao_Login",
+          "file": "includes/class-kakao-login.php",
+          "responsibilities": [
+            "Kakao OAuth 2.0 flow implementation",
+            "Authorization code exchange",
+            "User info retrieval"
+          ],
+          "oauth_endpoints": {
+            "AUTH_URL": "https://kauth.kakao.com/oauth/authorize",
+            "TOKEN_URL": "https://kauth.kakao.com/oauth/token",
+            "USER_INFO_URL": "https://kapi.kakao.com/v2/user/me"
+          },
+          "api_flow": {
+            "1_authorization": {
+              "url": "AUTH_URL",
+              "params": {
+                "client_id": "REST API Key",
+                "redirect_uri": "/kakao-callback/",
+                "response_type": "code"
+              }
+            },
+            "2_token_exchange": {
+              "url": "TOKEN_URL",
+              "method": "POST",
+              "params": {
+                "grant_type": "authorization_code",
+                "client_id": "REST API Key",
+                "redirect_uri": "/kakao-callback/",
+                "code": "authorization_code",
+                "client_secret": "optional"
+              }
+            },
+            "3_user_info": {
+              "url": "USER_INFO_URL",
+              "method": "GET",
+              "headers": {
+                "Authorization": "Bearer {access_token}"
+              },
+              "response_mapping": {
+                "provider_id": "data['id']",
+                "email": "data['kakao_account']['email']",
+                "name": "data['properties']['nickname']",
+                "profile_image": "data['properties']['profile_image']"
+              }
+            }
+          },
+          "key_methods": {
+            "get_login_url": {
+              "description": "Generate Kakao OAuth authorization URL",
+              "returns": "string - authorization URL with query params"
+            },
+            "handle_callback": {
+              "description": "Process Kakao callback at /kakao-callback/",
+              "flow": [
+                "1. Validate authorization code",
+                "2. Exchange code for access token",
+                "3. Fetch user info",
+                "4. Process social login via WIA_Social_Auth_Handler",
+                "5. Set WordPress auth cookie",
+                "6. Redirect to appropriate page"
+              ]
+            }
+          }
+        },
+        {
+          "name": "WIA_Naver_Login",
+          "file": "includes/class-naver-login.php",
+          "responsibilities": [
+            "Naver OAuth 2.0 flow implementation",
+            "CSRF protection with state parameter",
+            "Authorization code exchange",
+            "User info retrieval"
+          ],
+          "oauth_endpoints": {
+            "AUTH_URL": "https://nid.naver.com/oauth2.0/authorize",
+            "TOKEN_URL": "https://nid.naver.com/oauth2.0/token",
+            "USER_INFO_URL": "https://openapi.naver.com/v1/nid/me"
+          },
+          "security": {
+            "csrf_protection": {
+              "method": "State parameter with WordPress transients",
+              "generation": "wp_create_nonce('wia_naver_login')",
+              "storage": "set_transient('wia_naver_state_{state}', true, 600)",
+              "expiration": "10 minutes"
+            }
+          },
+          "api_flow": {
+            "1_authorization": {
+              "url": "AUTH_URL",
+              "params": {
+                "response_type": "code",
+                "client_id": "Client ID",
+                "redirect_uri": "/naver-callback/",
+                "state": "CSRF token"
+              }
+            },
+            "2_token_exchange": {
+              "url": "TOKEN_URL",
+              "method": "GET",
+              "params": {
+                "grant_type": "authorization_code",
+                "client_id": "Client ID",
+                "client_secret": "Client Secret",
+                "code": "authorization_code",
+                "state": "CSRF token"
+              }
+            },
+            "3_user_info": {
+              "url": "USER_INFO_URL",
+              "method": "GET",
+              "headers": {
+                "Authorization": "Bearer {access_token}"
+              },
+              "response_mapping": {
+                "provider_id": "data['response']['id']",
+                "email": "data['response']['email']",
+                "name": "data['response']['name'] || data['response']['nickname']",
+                "profile_image": "data['response']['profile_image']"
+              }
+            }
+          }
+        },
+        {
+          "name": "WIA_Social_Admin_Settings",
+          "file": "admin/admin-settings.php",
+          "responsibilities": [
+            "Settings page with tabs (General, Kakao, Naver)",
+            "API key management",
+            "Configuration options",
+            "Setup guides"
+          ]
+        }
+      ],
+
+      "wordpress_routes": {
+        "oauth_callbacks": [
+          {
+            "url": "/kakao-callback/",
+            "query_var": "wia_kakao_callback=1",
+            "handler": "WIA_Kakao_Login::handle_callback",
+            "purpose": "Kakao OAuth callback endpoint"
+          },
+          {
+            "url": "/naver-callback/",
+            "query_var": "wia_naver_callback=1",
+            "handler": "WIA_Naver_Login::handle_callback",
+            "purpose": "Naver OAuth callback endpoint"
+          }
+        ]
+      },
+
+      "shortcodes": [
+        {
+          "shortcode": "[wia_social_login_buttons]",
+          "file": "templates/login-buttons.php",
+          "description": "Display Kakao and Naver login buttons",
+          "auto_display": "WordPress login page (if enabled in settings)"
+        }
+      ],
+
+      "wordpress_hooks": {
+        "actions": [
+          {
+            "hook": "login_form",
+            "callback": "WIA_Social_Login::add_login_buttons",
+            "description": "Add social login buttons to WordPress login form"
+          },
+          {
+            "hook": "register_form",
+            "callback": "WIA_Social_Login::add_login_buttons",
+            "description": "Add social login buttons to WordPress registration form"
+          },
+          {
+            "hook": "wia_social_login_loaded",
+            "description": "Custom hook triggered after plugin initialization",
+            "use_case": "Third-party integration point"
+          },
+          {
+            "hook": "wia_social_login_user_created",
+            "args": ["user_id", "user_info", "provider"],
+            "description": "Triggered after new user created via social login",
+            "use_case": "Third-party can add custom initialization logic"
+          }
+        ]
+      },
+
+      "data_models": {
+        "user_metadata": [
+          {
+            "meta_key": "wia_social_kakao_id",
+            "type": "string",
+            "description": "Kakao user ID",
+            "set_by": "WIA_Social_Auth_Handler::link_social_account"
+          },
+          {
+            "meta_key": "wia_social_naver_id",
+            "type": "string",
+            "description": "Naver user ID",
+            "set_by": "WIA_Social_Auth_Handler::link_social_account"
+          },
+          {
+            "meta_key": "wia_social_provider",
+            "type": "string",
+            "values": ["kakao", "naver"],
+            "description": "Primary social login provider",
+            "set_by": "WIA_Social_Auth_Handler::create_user"
+          },
+          {
+            "meta_key": "wia_social_profile_image",
+            "type": "string",
+            "description": "Profile image URL from social provider",
+            "set_by": "WIA_Social_Auth_Handler::create_user, maybe_sync_profile"
+          },
+          {
+            "meta_key": "wia_social_last_login",
+            "type": "datetime",
+            "description": "Last login timestamp",
+            "set_by": "WIA_Social_Auth_Handler::maybe_sync_profile"
+          },
+          {
+            "meta_key": "wia_social_kakao_linked_date",
+            "type": "datetime",
+            "description": "Date Kakao account was linked",
+            "set_by": "WIA_Social_Auth_Handler::link_social_account"
+          },
+          {
+            "meta_key": "wia_social_naver_linked_date",
+            "type": "datetime",
+            "description": "Date Naver account was linked",
+            "set_by": "WIA_Social_Auth_Handler::link_social_account"
+          }
+        ],
+        "options": [
+          {
+            "option_name": "wia_social_login_settings",
+            "type": "array",
+            "default": {
+              "kakao_client_id": "",
+              "kakao_client_secret": "",
+              "kakao_redirect_uri": "/kakao-callback/",
+              "naver_client_id": "",
+              "naver_client_secret": "",
+              "naver_redirect_uri": "/naver-callback/",
+              "auto_create_account": true,
+              "default_role": "author",
+              "redirect_after_login": "book-info",
+              "sync_profile": true,
+              "enable_on_login_page": true
+            }
+          }
+        ],
+        "transients": [
+          {
+            "transient_name": "wia_naver_state_{state}",
+            "type": "boolean",
+            "expiration": 600,
+            "description": "CSRF protection for Naver OAuth flow"
+          }
+        ]
+      },
+
+      "frontend_assets": {
+        "css": [
+          {
+            "handle": "wia-social-login-style",
+            "file": "assets/css/social-login.css",
+            "features": [
+              "Button styling (Kakao: #FEE500, Naver: #03C75A)",
+              "Loading states with spinner animation",
+              "Responsive design (mobile/desktop)",
+              "WordPress login page integration",
+              "Error message styling"
+            ]
+          }
+        ],
+        "javascript": [
+          {
+            "handle": "wia-social-login-script",
+            "file": "assets/js/social-login.js",
+            "dependencies": ["jquery"],
+            "features": [
+              "Loading state on button click",
+              "Auto-fade error messages (5 seconds)"
+            ]
+          }
+        ]
+      },
+
+      "security": {
+        "oauth_security": [
+          "OAuth 2.0 authorization code flow",
+          "HTTPS required for callbacks",
+          "CSRF protection via state parameter (Naver)",
+          "WordPress nonce verification",
+          "Secure password generation (20 chars, special chars)"
+        ],
+        "data_sanitization": [
+          "sanitize_text_field() for all text inputs",
+          "sanitize_url() for profile images",
+          "wp_unslash() before processing $_GET/$_POST"
+        ]
+      }
+    }
+  ],
+
+  "integration_patterns": {
+    "cross_plugin_communication": {
+      "detection_method": {
+        "description": "Social Login plugin detects WIABooks via class existence",
+        "code": "class_exists('WIABooks_Signup_System')",
+        "location": "WIA_Social_Auth_Handler::is_wiabooks_active()"
+      },
+
+      "shared_user_flow": {
+        "new_user_via_google": [
+          "1. User clicks Google login (Nextend Social Login)",
+          "2. WIABooks_Signup_Handler::handle_social_login triggered (nsl_login hook)",
+          "3. Check wiabooks_book_category_id metadata",
+          "4. Redirect to /book-info/ (no category) or /author-dashboard/ (has category)"
+        ],
+        "new_user_via_kakao_naver": [
+          "1. User clicks Kakao/Naver button",
+          "2. OAuth flow completes at callback URL",
+          "3. WIA_Social_Auth_Handler::create_user creates WordPress user",
+          "4. If WIABooks active: Initialize wiabooks_credit=1000, wiabooks_signup_date",
+          "5. WIA_Social_Auth_Handler::get_redirect_url checks wiabooks_book_category_id",
+          "6. Redirect to /book-info/ (new) or /author-dashboard/ (existing)"
+        ],
+        "book_info_submission": [
+          "1. User submits book info at /book-info/",
+          "2. AJAX to submit_book_info endpoint",
+          "3. WIABooks_Category_Manager creates category with romanized slug",
+          "4. Set user metadata: wiabooks_book_category_id, wiabooks_book_title, wiabooks_credit=1000",
+          "5. Set user role to 'author'",
+          "6. Redirect to /author-dashboard/"
+        ]
+      },
+
+      "shared_metadata": [
+        {
+          "meta_key": "wiabooks_credit",
+          "initialized_by": [
+            "WIABooks plugin activation (set_default_credits)",
+            "WIABooks book info submission",
+            "Social Login user creation (if WIABooks active)"
+          ],
+          "default_value": 1000
+        },
+        {
+          "meta_key": "wiabooks_signup_date",
+          "initialized_by": [
+            "WIABooks book info submission",
+            "Social Login user creation (if WIABooks active)"
+          ],
+          "format": "mysql datetime"
+        },
+        {
+          "meta_key": "wiabooks_book_category_id",
+          "initialized_by": "WIABooks book info submission only",
+          "critical": true,
+          "usage": "Determines redirect logic, permission filtering, post assignment"
+        }
+      ]
+    },
+
+    "common_user_journeys": {
+      "journey_1_google_new_author": {
+        "steps": [
+          "1. Visit WordPress login page",
+          "2. Click Google login (Nextend)",
+          "3. Authenticate with Google",
+          "4. Redirect to /book-info/",
+          "5. Enter book title, subtitle, description",
+          "6. Submit form (AJAX)",
+          "7. Category created with romanized slug",
+          "8. User metadata set (category_id, title, credit=1000, role=author)",
+          "9. Redirect to /author-dashboard/",
+          "10. Create posts (auto-assigned to category, collaboration with same-category authors)"
+        ]
+      },
+      "journey_2_kakao_new_author": {
+        "steps": [
+          "1. Visit WordPress login page",
+          "2. Click Kakao login button",
+          "3. Authenticate with Kakao",
+          "4. Callback to /kakao-callback/",
+          "5. User created with wiabooks_credit=1000 (if WIABooks active)",
+          "6. Redirect to /book-info/",
+          "7. [Same as journey_1 from step 5]"
+        ]
+      },
+      "journey_3_existing_author_login": {
+        "steps": [
+          "1. Login via Google/Kakao/Naver",
+          "2. Detect wiabooks_book_category_id exists",
+          "3. Direct redirect to /author-dashboard/",
+          "4. View stats, writing progress, recent posts",
+          "5. Create/edit posts in own category"
+        ]
+      }
+    }
+  },
+
+  "technical_requirements": {
+    "wordpress": {
+      "min_version": "6.0",
+      "tested_up_to": "6.4"
+    },
+    "php": {
+      "min_version": "7.4",
+      "recommended": "8.0+"
+    },
+    "server": {
+      "https": "Required for OAuth callbacks",
+      "extensions": ["json", "curl", "mbstring"]
+    },
+    "external_apis": {
+      "kakao": {
+        "developer_url": "https://developers.kakao.com/",
+        "required_credentials": ["REST API Key"],
+        "optional_credentials": ["Client Secret"],
+        "required_scopes": ["account_email (required)", "profile (optional)"],
+        "callback_url_format": "https://yourdomain.com/kakao-callback/"
+      },
+      "naver": {
+        "developer_url": "https://developers.naver.com/",
+        "required_credentials": ["Client ID", "Client Secret"],
+        "required_scopes": ["email (required)", "name (required)", "profile_image (optional)"],
+        "callback_url_format": "https://yourdomain.com/naver-callback/"
+      },
+      "google": {
+        "handled_by": "Nextend Social Login plugin",
+        "note": "WIABooks integrates via nsl_login hook"
+      }
+    }
+  },
+
+  "deployment_notes": {
+    "installation_order": [
+      "1. Install and configure Nextend Social Login (Google)",
+      "2. Install and activate WIABooks Signup System",
+      "3. Install and activate WIA Books Social Login",
+      "4. Configure Kakao/Naver API keys",
+      "5. Flush permalinks (Settings > Permalinks > Save)"
+    ],
+    "permalink_structure": {
+      "required": "Pretty permalinks enabled",
+      "custom_routes": [
+        "/book-info/",
+        "/author-dashboard/",
+        "/kakao-callback/",
+        "/naver-callback/"
+      ]
+    },
+    "critical_config": {
+      "kakao_redirect_uri": "Must match exactly in Kakao Developer Console",
+      "naver_redirect_uri": "Must match exactly in Naver Developer Console",
+      "https": "Required for OAuth 2.0 security"
+    }
+  },
+
+  "extension_points": {
+    "custom_hooks": [
+      {
+        "hook": "wiabooks_signup_loaded",
+        "type": "action",
+        "args": 0,
+        "description": "Triggered after WIABooks plugin initialization",
+        "use_case": "Add custom functionality to WIABooks system"
+      },
+      {
+        "hook": "wia_social_login_loaded",
+        "type": "action",
+        "args": 0,
+        "description": "Triggered after Social Login plugin initialization",
+        "use_case": "Add custom social providers or modify behavior"
+      },
+      {
+        "hook": "wia_social_login_user_created",
+        "type": "action",
+        "args": 3,
+        "parameters": ["user_id", "user_info", "provider"],
+        "description": "Triggered after new user created via social login",
+        "use_case": "Initialize custom user data, send welcome email, etc."
+      }
+    ],
+
+    "filter_hooks": [
+      {
+        "hook": "Potential: wiabooks_redirect_after_book_info",
+        "current_value": "home_url('/author-dashboard/')",
+        "use_case": "Customize redirect destination after book info submission"
+      },
+      {
+        "hook": "Potential: wia_social_login_redirect_url",
+        "current_value": "Calculated by WIA_Social_Auth_Handler::get_redirect_url",
+        "use_case": "Override redirect logic for specific use cases"
+      }
+    ]
+  },
+
+  "known_issues_and_fixes": {
+    "fixed_issues": [
+      {
+        "date": "2025-11-23",
+        "issue": "Authors couldn't access post-new.php - 403 errors in block editor",
+        "root_cause": "WIABooks_Permission_Manager::check_post_edit_permission too restrictive",
+        "symptom": "REST API requests blocked by permission check",
+        "fix": "Added REST_REQUEST, DOING_AJAX, DOING_AUTOSAVE exceptions",
+        "file": "includes/class-permission-manager.php",
+        "lines": "145-158",
+        "commit": "a241e3d - Fix: Author 권한 시스템 버그 수정"
+      }
+    ],
+    "potential_considerations": [
+      {
+        "area": "Category deletion",
+        "consideration": "Categories with posts cannot be deleted - ensure proper cleanup flow"
+      },
+      {
+        "area": "Multi-author collaboration",
+        "consideration": "Same-category authors can edit each other's posts - document this behavior"
+      },
+      {
+        "area": "Email conflicts",
+        "consideration": "Social login with existing email links accounts - clear user communication needed"
+      }
+    ]
+  },
+
+  "testing_scenarios": {
+    "user_flows": [
+      {
+        "scenario": "New user - Google login",
+        "test_steps": [
+          "1. Fresh WordPress user, no account",
+          "2. Login via Google (Nextend)",
+          "3. Verify redirect to /book-info/",
+          "4. Submit book information",
+          "5. Verify category created with correct slug",
+          "6. Verify user metadata set",
+          "7. Verify redirect to /author-dashboard/",
+          "8. Verify can create posts",
+          "9. Verify posts auto-assigned to category"
+        ]
+      },
+      {
+        "scenario": "New user - Kakao login",
+        "test_steps": [
+          "1. Fresh WordPress user, no account",
+          "2. Login via Kakao",
+          "3. Verify user created with correct metadata",
+          "4. Verify wiabooks_credit=1000 if WIABooks active",
+          "5. [Same as Google login from step 3]"
+        ]
+      },
+      {
+        "scenario": "Permission system",
+        "test_steps": [
+          "1. Create 2 authors with different categories",
+          "2. Author A creates post in Category A",
+          "3. Verify Author B cannot see post in admin",
+          "4. Verify Author B cannot edit post",
+          "5. Create Author C in Category A",
+          "6. Verify Author C can see and edit Author A's posts"
+        ]
+      }
+    ]
+  }
+}
